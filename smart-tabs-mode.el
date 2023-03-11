@@ -243,21 +243,26 @@ Smarttabs is enabled in mode hook.")
 
 ;;;###autoload
 (defmacro smart-tabs-advice (function offset)
-  `(progn
-     (defadvice ,function (around smart-tabs activate)
-       (cond
-        ((and smart-tabs-mode indent-tabs-mode (eq ,offset tab-width))
-         (save-excursion
-           (beginning-of-line)
-           (while (looking-at "\t*\\( +\\)\t+")
-             (replace-match "" nil nil nil 1)))
-         (setq tab-width tab-width)
-         (let ((tab-width fill-column)
-               (,offset fill-column))
-           (unwind-protect
-               (progn ad-do-it))))
-        (t
-         ad-do-it)))))
+  (let ((offset (if (listp offset)
+                    offset
+                  (list offset))))
+    `(progn
+       (defadvice ,function (around smart-tabs activate)
+         (cond
+          (,(let ((res '(and smart-tabs-mode indent-tabs-mode)))
+              (dolist (o offset res)
+                (add-to-list 'res `(eq ,o tab-width) t)))
+           (save-excursion
+             (beginning-of-line)
+             (while (looking-at "\t*\\( +\\)\t+")
+               (replace-match "" nil nil nil 1)))
+           (setq tab-width tab-width)
+           (let ,(let ((res '((tab-width fill-column)))) (dolist (o offset res)
+                                    (add-to-list 'res `(,o fill-column) t)))
+             (unwind-protect
+                 (progn ad-do-it))))
+          (t
+           ad-do-it))))))
 
 ;;;###autoload
 (defun smart-tabs-insinuate (&rest languages)
